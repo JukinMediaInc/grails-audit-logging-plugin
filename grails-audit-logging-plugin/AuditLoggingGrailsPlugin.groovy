@@ -21,6 +21,8 @@ import org.codehaus.groovy.grails.plugins.orm.auditable.AuditLogListener
 import org.codehaus.groovy.grails.plugins.orm.auditable.AuditLogListenerUtil
 import org.codehaus.groovy.grails.plugins.orm.auditable.AuditLoggingUtils
 import org.grails.datastore.mapping.core.Datastore
+import org.springframework.context.ApplicationContext
+import java.util.regex.Matcher
 
 /**
  * @author Robert Oschwald
@@ -122,47 +124,64 @@ When called, the event handlers have access to oldObj and newObj definitions tha
     def loadAfter = ['core', 'dataSource']
 
     // Register generic GORM listener
-    def doWithApplicationContext = { applicationContext ->
-        // due to next line, Grails 2.0 is not supported anymore.
-        // We need to obtain all datastores in ORM agnostic way, but in Grails 2.0.x, the DataStore is not obtainable from ctx.
-        applicationContext.getBeansOfType(Datastore).values().each { Datastore datastore ->
-            // Don't register the listener if we are disabled
-            log.debug("Registering AuditLogListeners to datastores")
-            // Note: Some datastores do not hold config property (e.g. mongodb)
-            boolean dataStoreDisabled = datastore.hasProperty("config") ? datastore.config.auditLog.disabled : false
-            if (!application.config.auditLog.disabled && !dataStoreDisabled) {
-                log.debug("Registering AuditLogListeners to datastore $datastore")
-                def listener = new AuditLogListener(datastore)
-                listener.with {
-                    grailsApplication = application
-                    stampEnabled = application.config.auditLog.stampEnabled ?: true
-                    stampAlways = application.config.auditLog.stampAlways ?: false
-                    stampCreatedBy = application.config.auditLog.stampCreatedBy ?: 'createdBy'
-                    stampLastUpdatedBy = application.config.auditLog.stampLastUpdatedBy ?: 'lastUpdatedBy'
-                    verbose = application.config.auditLog.verbose ?: false
-                    nonVerboseDelete = application.config.auditLog.nonVerboseDelete ?: false
-                    logFullClassName = application.config.auditLog.logFullClassName ?: false
-                    transactional = application.config.auditLog.transactional ?: false
-                    sessionAttribute = application.config.auditLog.sessionAttribute ?: ""
-                    actorKey = application.config.auditLog.actorKey ?: ""
-                    truncateLength = application.config.auditLog.truncateLength ?: determineDefaultTruncateLength(applicationContext)
-                    actorKey = application.config.auditLog.actorKey ?: ""
-                    actorClosure = application.config.auditLog.actorClosure ?: AuditLogListenerUtil.actorDefaultGetter
-                    defaultIgnoreList = application.config.auditLog.defaultIgnore?.asImmutable() ?: ['version', 'lastUpdated'].asImmutable()
-                    defaultMaskList = application.config.auditLog.defaultMask?.asImmutable() ?: ['password'].asImmutable()
-                    propertyMask = application.config.auditLog.propertyMask ?: "**********"
-                    replacementPatterns = application.config.auditLog.replacementPatterns
-                    logIds = application.config.auditLog.logIds ?: false
+    def doWithApplicationContext = { ApplicationContext applicationContext ->
+        Boolean applicationDisabled = application.config.auditLog.disabled ?: false
+        if (applicationDisabled) {
+            log.debug "AuditLog is disabled for the entire application"
+        } else {
+            // due to next line, Grails 2.0 is not supported anymore.
+            // We need to obtain all datastores in ORM agnostic way, but in Grails 2.0.x, the DataStore is not obtainable from ctx.
+            applicationContext.getBeansOfType(Datastore).values().each { Datastore datastore ->
+                // Don't register the listener if we are disabled
+                // Note: Some datastores do not hold config property (e.g. mongodb)
+                String datastoreName = getDatastoreName(datastore)
+                Boolean dataSourceDisabled = isDataSourceDisabled(datastore)
+                if (dataSourceDisabled) {
+                    log.debug "AuditLog disabled for Datastore ${datastoreName}"
+                } else {
+                    log.debug "Registering AuditLogListener to datastore ${datastoreName}"
+                    Integer defaultTruncateLength = determineDefaultTruncateLength(applicationContext)
+                    AuditLogListener listener = createAuditLogListener(application, datastore, defaultTruncateLength)
+                    if (listener) {
+                        applicationContext.addApplicationListener(listener)
+                    } else {
+                        log.error "Failed registering AuditLogListener to datastore ${datastoreName}"
+                    }
                 }
-                applicationContext.addApplicationListener(listener)
             }
         }
+    }
+
+    private AuditLogListener createAuditLogListener(application, Datastore datastore, Integer defaultTruncateLength) {
+        AuditLogListener listener = new AuditLogListener(datastore)
+        listener.with {
+            grailsApplication = application
+            stampEnabled = application.config.auditLog.stampEnabled ?: true
+            stampAlways = application.config.auditLog.stampAlways ?: false
+            stampCreatedBy = application.config.auditLog.stampCreatedBy ?: 'createdBy'
+            stampLastUpdatedBy = application.config.auditLog.stampLastUpdatedBy ?: 'lastUpdatedBy'
+            verbose = application.config.auditLog.verbose ?: false
+            nonVerboseDelete = application.config.auditLog.nonVerboseDelete ?: false
+            logFullClassName = application.config.auditLog.logFullClassName ?: false
+            transactional = application.config.auditLog.transactional ?: false
+            sessionAttribute = application.config.auditLog.sessionAttribute ?: ""
+            actorKey = application.config.auditLog.actorKey ?: ""
+            truncateLength = application.config.auditLog.truncateLength ?: defaultTruncateLength
+            actorKey = application.config.auditLog.actorKey ?: ""
+            actorClosure = application.config.auditLog.actorClosure ?: AuditLogListenerUtil.actorDefaultGetter
+            defaultIgnoreList = application.config.auditLog.defaultIgnore?.asImmutable() ?: ['version', 'lastUpdated'].asImmutable()
+            defaultMaskList = application.config.auditLog.defaultMask?.asImmutable() ?: ['password'].asImmutable()
+            propertyMask = application.config.auditLog.propertyMask ?: "**********"
+            replacementPatterns = application.config.auditLog.replacementPatterns
+            logIds = application.config.auditLog.logIds ?: false
+        }
+        return listener
     }
 
     /**
      * The default truncate length is 255 unless we are using the largeValueColumnTypes, then we allow up to the column size
      */
-    private Integer determineDefaultTruncateLength(ctx) {
+    private Integer determineDefaultTruncateLength(ApplicationContext ctx) throws IllegalArgumentException {
         String confAuditDomainClassName = AuditLoggingUtils.auditConfig.auditDomainClassName
         if (confAuditDomainClassName == null){
             throw new IllegalArgumentException("Please configure auditLog.auditDomainClassName in Config.groovy")
@@ -174,5 +193,34 @@ When called, the event handlers have access to oldObj and newObj definitions tha
         }
         Class AuditLogEvent = dc.clazz
         AuditLogEvent.constraints.oldValue?.maxSize ?: 255
+    }
+
+    /** Determine if this Datastore is configured to disable the AuditLog */
+    private Boolean isDataSourceDisabled(Datastore datastore) {
+        String dataSourceName = getDataSourceName(datastore)
+        datastore.config[(dataSourceName)].auditLog.disabled ?: false
+    }
+
+    private String getDatastoreName(Datastore datastore) {
+        datastore?.sessionFactory?.targetBean ?: datastore.toString()
+    }
+
+    /**
+     * Derive the dataSource name for a provided datastore.
+     * @param datastore
+     */
+    private String getDataSourceName(Datastore datastore) {
+        List<String> dataSourceNameParts = [] as List<String>
+        if (datastore) {
+            dataSourceNameParts << 'dataSource'
+            if (datastore?.hasProperty('config')) {
+                String datastoreName = getDatastoreName(datastore)
+                Matcher group = datastoreName =~ /.+\.SESSION_FACTORY_HOLDER(_)(.+)/
+                if (group.matches() && group.hasGroup() && group.groupCount()) {
+                    dataSourceNameParts << ((group[0] as List)[2] as String)
+                }
+            }
+        }
+        dataSourceNameParts.join('_')
     }
 }
