@@ -127,7 +127,7 @@ When called, the event handlers have access to oldObj and newObj definitions tha
     def doWithApplicationContext = { ApplicationContext applicationContext ->
         Boolean applicationDisabled = application.config.auditLog.disabled ?: false
         if (applicationDisabled) {
-            log.debug "AuditLog is disabled for the entire application"
+            log.info "AuditLog is disabled for the entire application"
         } else {
             // due to next line, Grails 2.0 is not supported anymore.
             // We need to obtain all datastores in ORM agnostic way, but in Grails 2.0.x, the DataStore is not obtainable from ctx.
@@ -137,9 +137,9 @@ When called, the event handlers have access to oldObj and newObj definitions tha
                 String datastoreName = getDatastoreName(datastore)
                 Boolean dataSourceDisabled = isDataSourceDisabled(datastore)
                 if (dataSourceDisabled) {
-                    log.debug "AuditLog disabled for Datastore ${datastoreName}"
+                    log.info "AuditLog disabled for Datastore ${datastoreName}"
                 } else {
-                    log.debug "Registering AuditLogListener to datastore ${datastoreName}"
+                    log.info "Registering AuditLogListener to datastore ${datastoreName}"
                     Integer defaultTruncateLength = determineDefaultTruncateLength(applicationContext)
                     AuditLogListener listener = createAuditLogListener(application, datastore, defaultTruncateLength)
                     if (listener) {
