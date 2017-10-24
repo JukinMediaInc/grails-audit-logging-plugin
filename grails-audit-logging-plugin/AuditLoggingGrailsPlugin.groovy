@@ -202,11 +202,14 @@ When called, the event handlers have access to oldObj and newObj definitions tha
     }
 
     private String getDatastoreName(Datastore datastore) {
+        String datastoreName
         if (datastore?.sessionFactory?.hasProperty('targetBean')) {
-            datastore.sessionFactory.targetBean
+            datastoreName = datastore.sessionFactory.targetBean
         } else {
-            datastore.toString()
+            datastoreName = datastore?.toString()
         }
+        log.debug "Using datastoreName '${datastoreName}' for datastore=${datastore.toString()}"
+        return datastoreName
     }
 
     /**
@@ -225,6 +228,8 @@ When called, the event handlers have access to oldObj and newObj definitions tha
                 }
             }
         }
-        dataSourceNameParts.join('_')
+        String dataSourceName = dataSourceNameParts.join('_')
+        log.debug "Using dataSourceName '${dataSourceName}' for datastore=${datastore?.toString()}"
+        return dataSourceName
     }
 }
