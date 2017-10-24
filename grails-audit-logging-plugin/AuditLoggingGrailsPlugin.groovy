@@ -135,6 +135,7 @@ When called, the event handlers have access to oldObj and newObj definitions tha
                 // Don't register the listener if we are disabled
                 // Note: Some datastores do not hold config property (e.g. mongodb)
                 String datastoreName = getDatastoreName(datastore)
+                log.debug "Using datastoreName '${datastoreName}' for datastore=${datastore?.toString()}"
                 Boolean dataSourceDisabled = isDataSourceDisabled(datastore)
                 if (dataSourceDisabled) {
                     log.info "AuditLog disabled for Datastore ${datastoreName}"
@@ -195,10 +196,16 @@ When called, the event handlers have access to oldObj and newObj definitions tha
         AuditLogEvent.constraints.oldValue?.maxSize ?: 255
     }
 
-    /** Determine if this Datastore is configured to disable the AuditLog */
+    /**
+     * Determine if the DataSource for this Datastore is configured to disable all AuditLogging for it.
+     * @param datastore
+     * @return the value of "${dataSourceName}.auditLog.disabled" property in DataSource.groovy, or false if no property.
+     */
     private Boolean isDataSourceDisabled(Datastore datastore) {
         String dataSourceName = getDataSourceName(datastore)
-        datastore.config[(dataSourceName)].auditLog.disabled ?: false
+        Boolean cfg = datastore.config[(dataSourceName)].auditLog.disabled
+        log.trace "Found '${cfg}' for 'datastore.config[(dataSourceName)].auditLog.disabled'"
+        return cfg ?: false
     }
 
     private String getDatastoreName(Datastore datastore) {
@@ -208,13 +215,13 @@ When called, the event handlers have access to oldObj and newObj definitions tha
         } else {
             datastoreName = datastore?.toString()
         }
-        log.debug "Using datastoreName '${datastoreName}' for datastore=${datastore.toString()}"
         return datastoreName
     }
 
     /**
      * Derive the dataSource name for a provided datastore.
      * @param datastore
+     * @return a DataSource bean name, like "dataSource" or "dataSource_replica", or empty if datastore param is null
      */
     private String getDataSourceName(Datastore datastore) {
         List<String> dataSourceNameParts = [] as List<String>
