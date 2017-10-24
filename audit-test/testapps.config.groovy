@@ -1,5 +1,6 @@
 
-String grailsHomeRoot = '/eclipse-common/grails'
+String grailsHomeRoot = System.properties.getProperty('auditlog.grails.home.root') ?: '/eclipse-common/grails'
+String grailsHomePrefix = System.properties.getProperty('auditlog.grails.home.prefix') ?: '/grails-'
 String projectDirCommon = "target"
 String dotGrailsCommon = "${System.properties.getProperty('user.home')}/.grails"
 
@@ -8,7 +9,7 @@ v22 {
 	pluginVersion = version
 	dotGrails = dotGrailsCommon
 	projectDir = projectDirCommon
-	grailsHome = grailsHomeRoot + '/grails-' + grailsVersion
+	grailsHome = grailsHomeRoot + grailsHomePrefix + grailsVersion
 }
 
 v23 {
@@ -16,7 +17,7 @@ v23 {
 	pluginVersion = version
 	dotGrails = dotGrailsCommon
 	projectDir = projectDirCommon
-	grailsHome = grailsHomeRoot + '/grails-' + grailsVersion
+	grailsHome = grailsHomeRoot + grailsHomePrefix + grailsVersion
 }
 
 v24 {
@@ -24,7 +25,7 @@ v24 {
 	pluginVersion = version
 	dotGrails = dotGrailsCommon
 	projectDir = projectDirCommon
-	grailsHome = grailsHomeRoot + '/grails-' + grailsVersion
+	grailsHome = grailsHomeRoot + grailsHomePrefix + grailsVersion
 }
 
 v25 {
@@ -32,6 +33,6 @@ v25 {
 	pluginVersion = version
 	dotGrails = dotGrailsCommon
 	projectDir = projectDirCommon
-	grailsHome = grailsHomeRoot + '/grails-' + grailsVersion
+	grailsHome = grailsHomeRoot + grailsHomePrefix + grailsVersion
 }
 
