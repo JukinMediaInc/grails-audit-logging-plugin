@@ -202,7 +202,11 @@ When called, the event handlers have access to oldObj and newObj definitions tha
     }
 
     private String getDatastoreName(Datastore datastore) {
-        datastore?.sessionFactory?.targetBean ?: datastore.toString()
+        if (datastore?.sessionFactory?.hasProperty('targetBean')) {
+            datastore.sessionFactory.targetBean
+        } else {
+            datastore.toString()
+        }
     }
 
     /**
