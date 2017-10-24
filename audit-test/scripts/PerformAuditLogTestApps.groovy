@@ -102,19 +102,11 @@ private void installPlugins() {
   if (grailsMajorVersion < 2.3f) {
     // need to add Spock as plugin
     String spockDependency = grailsMajorVersion > 2.1f ? '		test "org.spockframework:spock-grails-support:0.7-groovy-2.0"' : ''
-    String spockExclude = grailsMajorVersion > 2.1f ? '			exclude "spock-grails-support"' : ''
 
     println "Adding spock dependency.."
     contents = contents.replace('dependencies {', """
         dependencies {
           $spockDependency
-        """)
-
-    println "Adding spock plugin.."
-    contents = contents.replace('plugins {', """plugins {
-        test ":spock:0.7", {
-          $spockExclude
-        }
         """)
   }
 
